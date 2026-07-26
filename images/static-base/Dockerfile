@@ -1,5 +1,5 @@
-# syntax=docker/dockerfile:1.24@sha256:87999aa3d42bdc6bea60565083ee17e86d1f3339802f543c0d03998580f9cb89
-FROM debian:bookworm-slim@sha256:0104b334637a5f19aa9c983a91b54c89887c0984081f2068983107a6f6c21eeb AS builder 
+# syntax=docker/dockerfile:1.25@sha256:0adf442eae370b6087e08edc7c50b552d80ddf261576f4ebd6421006b2461f12
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS builder 
 
 ARG SWS_VERSION=2.42.0
 ARG SWS_SHA256_ARM64=f269f706042991f50d6478ea7743a4f2c38a23c1de10654208eec6832adebfd3
@@ -24,7 +24,7 @@ RUN set -eux; \
     tar -xzf "${TARBALL}" --strip-components=1; \
     chmod +x static-web-server
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:963fa6c544fe5ce420f1f54fb88b6fb01479f054c8056d0f74cc2c6000df5240
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:f7f8f729987ad0fdf6b05eeeae94b26e6a0f613bdf46feea7fc40f7bd72953e6
 ARG SWS_VERSION
 
 LABEL org.opencontainers.image.version="${SWS_VERSION}" \
