@@ -6,36 +6,34 @@ on:
     paths:
       - "images/golang/**"
       - ".github/workflows/build-redoubt-golang.yaml"
-      - ".github/workflows/build-redoubt-image.yaml"
+      - ".github/workflows/ci.yaml"
     tags:
       - "golang/v*"
   pull_request:
     paths:
       - "images/golang/**"
       - ".github/workflows/build-redoubt-golang.yaml"
-      - ".github/workflows/build-redoubt-image.yaml"
+      - ".github/workflows/ci.yaml"
   workflow_dispatch:
 
 jobs:
   golang-build:
-    uses: ./.github/workflows/build-redoubt-image.yaml
+    uses: ./.github/workflows/ci.yaml
     with:
       image-name: golang-build
       dockerfile: Dockerfile.builder
       context: images/golang
-      data-boundary: true
     permissions:
       contents: read
       packages: write
       id-token: write
       security-events: write
   golang:
-    uses: ./.github/workflows/build-redoubt-image.yaml
+    uses: ./.github/workflows/ci.yaml
     with:
       image-name: golang
       dockerfile: Dockerfile.runtime
       context: images/golang
-      data-boundary: true
     permissions:
       contents: read
       packages: write

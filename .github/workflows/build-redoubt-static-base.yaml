@@ -6,19 +6,19 @@ on:
     paths:
       - "images/static-base/**"
       - ".github/workflows/build-redoubt-static-base.yaml"
-      - ".github/workflows/build-redoubt-image.yaml"
+      - ".github/workflows/ci.yaml"
     tags:
       - "static-base/v*"
   pull_request:
     paths:
       - "images/static-base/**"
       - ".github/workflows/build-redoubt-static-base.yaml"
-      - ".github/workflows/build-redoubt-image.yaml"
+      - ".github/workflows/ci.yaml"
   workflow_dispatch:
 
 jobs:
   build:
-    uses: ./.github/workflows/build-redoubt-image.yaml
+    uses: ./.github/workflows/ci.yaml
     with:
       image-name: static-base
     permissions:
