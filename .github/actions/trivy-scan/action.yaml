@@ -1,0 +1,38 @@
+name: Trivy Scan
+description: Gate image on critical/high vulnerabilities & upload SARIF
+
+inputs:
+  image: 
+    description: URL to the Image 
+    required: true 
+
+runs:
+  using: composite
+
+  steps:      
+      - name: Gate (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: ${{ inputs.image }}
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Report (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c2 
+        if: always()
+        with:
+          image-ref: ${{ inputs.image }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          exit-code: '0'
+          ignore-unfixed: true
+
+      - name: Upload SARIF (Trivy)
+        if: always()
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-scan

@@ -1,0 +1,35 @@
+name: Run OpenSCAP STIG Scan
+description: Gate image on critical/high vulnerabilities & upload SARIF
+
+inputs: 
+  image: 
+    description: URL to the Image 
+    required: true 
+  
+
+runs:
+  using: composite
+
+  steps:      
+    - name: Install & Run OpenSCAP STIG scan 
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        ./scripts/setup-stig.sh \
+          --image ${IMAGE}
+   
+    - name: Upload Report (OpenSCAP STIG)
+      uses: actions/upload-artifact@v7
+      with:
+        name: stig-${{ inputs.image-name }}
+        path: |
+          stig-report.html
+          stig-results.xml 
+
+    - name: Upload SARIF (OpenSCAP STIG)
+      if: always()
+      uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa
+      with:
+        sarif_file: stig-results.sarif
+        category: openscap-stig

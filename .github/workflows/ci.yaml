@@ -1,0 +1,178 @@
+name: ci
+
+on:
+  workflow_dispatch:
+    inputs: &build-inputs
+      registry:
+        description: Container registry to push to
+        required: false
+        type: string
+        default: ghcr.io
+
+      image-name:
+        description: Image name without owner, e.g. static-base
+        required: true
+        type: string
+
+      platforms:
+        description: Comma-separated list of Docker build platforms
+        required: false
+        type: string
+        default: linux/amd64,linux/arm64
+      context:
+        required: false
+        description: Build context path (default images/<image-name>)
+        type: string
+        default: ""
+
+      dockerfile:
+        required: false
+        description: Dockerfile's filename
+        type: string 
+        default: Dockerfile
+
+  workflow_call:
+    inputs: *build-inputs
+    outputs:
+      digest:
+        description: sha256 digest of the pushed image
+        value: ${{ jobs.build.outputs.digest }}
+      image:
+        description: Image ref without digest (registry/owner/name)
+        value: ${{ jobs.build.outputs.image }}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  security-events: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.image-name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  REGISTRY: ${{ inputs.registry }}
+  IMAGE_REPOSITORY: ${{ github.repository_owner }}/${{ inputs.image-name }}
+  PLATFORMS: ${{ inputs.platforms }} 
+  IMAGE_URL:  ${{ inputs.registry }}/${{ github.repository_owner }}/${{ inputs.image-name }}
+
+jobs:
+  build-test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Set up GHCR
+        uses: ./.github/actions/docker-setup 
+        with: 
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build local image for testing
+        id: build-test
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
+        with:
+          context: ${{ inputs.context != '' && inputs.context || format('images/{0}', inputs.image-name)}}
+          file:  ${{ format('{0}/{1}', inputs.context != '' && inputs.context || format('images/{0}', inputs.image-name), inputs.dockerfile) }}
+          platforms: "linux/amd64"
+          load: true
+          tags: ${{ inputs.image-name }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          push: false
+          sbom: false 
+
+      - name: Trivy (Gate, Scan, & Upload)
+        uses: ./.github/actions/trivy-scan
+        with: 
+          image: ${{ inputs.image-name}}:test
+
+      - name: OpenSCAP STIG Scan
+        uses: ./.github/actions/trivy-scan
+        with: 
+          image: ${{ inputs.image-name}}:test 
+
+  build:
+    if: github.event_name != 'pull_request'
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      image: ${{ inputs.registry }}/${{ github.repository_owner }}/${{ inputs.image-name }}
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        - name: Set up GHCR
+          uses: ./.github/actions/docker-setup 
+          with: 
+            registry: ${{ inputs.registry }}
+            username: ${{ github.actor }}
+            token: ${{ secrets.GITHUB_TOKEN }}
+
+        - name: Extract metadata
+          id: meta
+          uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 
+          with:
+            images: ${{ env.IMAGE_URL }}
+            tags: |
+              type=ref,event=branch
+              type=ref,event=pr
+              type=match,pattern=${{ inputs.image-name }}/v(.*),group=1
+              type=sha,format=short
+              type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            labels: |
+              org.opencontainers.image.licenses=MIT
+              org.opencontainers.image.title=${{ inputs.image-name }}
+
+        - name: Build and push
+          id: build
+          uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf
+          with:
+            context: ${{ inputs.context != '' && inputs.context || format('images/{0}', inputs.image-name)}}
+            file:  ${{ format('{0}/{1}', inputs.context != '' && inputs.context || format('images/{0}', inputs.image-name), inputs.dockerfile) }}
+            platforms: ${{ env.PLATFORMS }}
+            push: ${{ github.event_name != 'pull_request' }}
+            tags: ${{ steps.meta.outputs.tags }}
+            labels: ${{ steps.meta.outputs.labels }}
+            cache-from: type=gha
+            cache-to: type=gha,mode=max
+            provenance: mode=max
+            sbom: false 
+  attest:
+      if: github.event_name != 'pull_request'
+      runs-on: ubuntu-latest
+      steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: Set up GHCR
+        uses: ./.github/actions/docker-setup 
+        with: 
+          registry: ${{ inputs.registry }}
+          username: ${{ github.actor }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 
+        with:
+          image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json 
+      - name: Sign & Attest (Cosign)
+        uses: ./.github/actions/attest
+        with: 
+          image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }} 
+  verify:
+      runs-on: ubuntu-latest
+      if: github.event_name != 'pull_request'
+      steps:
+        - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        - name: Set up GHCR
+          uses: ./.github/actions/docker-setup 
+          with: 
+            registry: ${{ inputs.registry }}
+            username: ${{ github.actor }}
+            token: ${{ secrets.GITHUB_TOKEN }}
+        - name: verify 
+          uses: ./.github/actions/verify
+          with:
+            image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }} 
