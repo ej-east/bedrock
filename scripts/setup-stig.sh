@@ -39,10 +39,11 @@ podman rm scan-target
 rc=0
 sudo oscap-chroot rootfs/ xccdf eval \
   --profile "${profile}" \
+  --tailoring-file "compliance/stig/rhel-micro.xml" \ 
   --results stig-results.xml \
   --report stig-report.html \
   "scap-security-guide-${version}/${datastream}" || rc=$?
-  # --tailoring-file "images/${IMAGE_NAME}/stig-tailoring.xml" \ add tailoring exists
+  
 
 if [[ ${rc} -eq 1 ]]; then
   echo "oscap evaluation errored" >&2
