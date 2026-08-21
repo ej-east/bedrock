@@ -16,7 +16,7 @@ runs:
     - name: Sign Image (Cosign)
       shell: bash
       env:
-        IMAGE: ${{ env.IMAGE_URL }}
+        IMAGE: ${{ inputs.image }}
       run: |
         set -eu
         cosign sign --yes "${IMAGE}"
@@ -24,7 +24,7 @@ runs:
     - name: SBOM Attestation (Cosign)
       shell: bash
       env:
-        IMAGE: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }}
+        IMAGE: ${{ inputs.image }}
       run: |
         set -eu
         cosign attest --yes \

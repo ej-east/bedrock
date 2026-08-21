@@ -41,8 +41,8 @@ sudo oscap-chroot rootfs/ xccdf eval \
   --profile "${profile}" \
   --results stig-results.xml \
   --report stig-report.html \
-  # --tailoring-file "images/${IMAGE_NAME}/stig-tailoring.xml" \ add tailoring exists
   "scap-security-guide-${version}/${datastream}" || rc=$?
+  # --tailoring-file "images/${IMAGE_NAME}/stig-tailoring.xml" \ add tailoring exists
 
 if [[ ${rc} -eq 1 ]]; then
   echo "oscap evaluation errored" >&2
@@ -57,7 +57,7 @@ npx --yes @microsoft/sarif-multitool convert \
   -t Hdf \
   -o stig-results.raw.sarif \
   stig-results.hdf.json
-.
+
 jq '
   .runs[].results |= map(
     select(

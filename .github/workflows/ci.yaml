@@ -91,7 +91,7 @@ jobs:
           image: ${{ inputs.image-name}}:test
 
       - name: OpenSCAP STIG Scan
-        uses: ./.github/actions/trivy-scan
+        uses: ./.github/actions/openscap-stig
         with: 
           image: ${{ inputs.image-name}}:test 
 
@@ -141,6 +141,7 @@ jobs:
             sbom: false 
   attest:
       if: github.event_name != 'pull_request'
+      needs: build
       runs-on: ubuntu-latest
       steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -154,14 +155,15 @@ jobs:
       - name: Generate SBOM (Syft)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 
         with:
-          image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }}
+          image: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
           format: spdx-json
           output-file: sbom.spdx.json 
       - name: Sign & Attest (Cosign)
         uses: ./.github/actions/attest
         with: 
-          image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }} 
+          image: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
   verify:
+      needs: [build, attest]
       runs-on: ubuntu-latest
       if: github.event_name != 'pull_request'
       steps:
@@ -175,4 +177,4 @@ jobs:
         - name: verify 
           uses: ./.github/actions/verify
           with:
-            image: ${{ steps.build.outputs.image }}@${{ steps.build.outputs.digest }} 
+            image: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}

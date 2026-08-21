@@ -20,7 +20,7 @@ runs:
           ignore-unfixed: true
 
       - name: Report (Trivy)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c2 
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         if: always()
         with:
           image-ref: ${{ inputs.image }}

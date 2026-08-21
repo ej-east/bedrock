@@ -20,9 +20,10 @@ runs:
           --image ${IMAGE}
    
     - name: Upload Report (OpenSCAP STIG)
+      if: always()
       uses: actions/upload-artifact@v7
       with:
-        name: stig-${{ inputs.image-name }}
+        name: openscap-stig
         path: |
           stig-report.html
           stig-results.xml 
